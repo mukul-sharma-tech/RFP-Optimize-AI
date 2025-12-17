@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+motor
+pymongo
+pydantic
+python-jose[cryptography]
+python-multipart
+streamlit
+requests
+pandas
+google-generativeai  # <--- NEW
+python-dotenv        # <--- For managing API keys securely
+apscheduler          # <--- For cron jobs

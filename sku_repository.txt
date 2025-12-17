@@ -1,0 +1,27 @@
+INTERNAL PRODUCT REPOSITORY - DATASHEETS
+
+1. SKU: P001 - Standard Widget
+   - Type: Basic Industrial Widget
+   - Voltage Rating: 415V
+   - Material: Standard Steel
+   - Durability: Medium (Indoor use only)
+   - Compliance: ISO 9001
+
+2. SKU: P002 - Premium Widget
+   - Type: Heavy Duty Widget
+   - Voltage Rating: 11kV - 33kV
+   - Material: Reinforced Titanium Alloy
+   - Durability: High (Outdoor/Weatherproof IP67)
+   - Compliance: IEC 60502, ISO 9001
+
+3. SKU: P005 - Smart Grid Gadget
+   - Type: IoT Enabled Controller
+   - Voltage Rating: 11kV
+   - Features: Remote monitoring, Wi-Fi enabled, Auto-shutoff
+   - Material: Polymer Composite
+   - Compliance: IEC 61850 (Smart Grid)
+
+4. SKU: CABLE-XLPE-01
+   - Type: High Voltage Power Cable
+   - Spec: 3 Core x 300 sqmm, Aluminium Conductor, XLPE Insulated
+   - Application: Underground transmission

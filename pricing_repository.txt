@@ -1,0 +1,13 @@
+INTERNAL PRICING REFERENCE - Q4 2025
+
+MATERIAL COSTS (Base Unit Price):
+- P001 (Standard Widget): ₹50.00 USD
+- P002 (Premium Widget): ₹120.00 USD
+- P005 (Smart Grid Gadget): ₹250.00 USD
+- CABLE-XLPE-01: ₹45.00 USD per meter
+
+SERVICE FEES:
+- Standard Testing Fee: ₹500.00 flat rate
+- Advanced Certification (IEC): ₹1,200.00 flat rate
+- Rush Order Surcharge: +15% on total
+- Shipping (Domestic): ₹200.00
