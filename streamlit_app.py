@@ -8,7 +8,7 @@ load_dotenv()
 # ======================================================
 # CONFIG
 # ======================================================
-BASE_URL = "http://127.0.0.1:8000"
+BASE_URL = "https://rfp-optimize-ai.onrender.com"
 
 st.set_page_config(
     page_title="RFP-Optimize AI",
