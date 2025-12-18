@@ -14,7 +14,7 @@ import os
 
 load_dotenv()
 DATABASE_NAME="rfp_platform"
-MONGODB_URL = os.getenv("MONGODB_URL", "mongodb+srv://mukul:1010@nodecluster0.hurza.mongodb.net/?retryWrites=true&w=majority&appName=NodeCluster0")
+MONGODB_URL = os.getenv("MONGODB_URL", "")
 #   -> user will give the detils of rfp and 
 # Import Database stuff from database.py
 from database import (
