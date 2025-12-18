@@ -2,6 +2,8 @@ import streamlit as st
 import requests
 from datetime import datetime
 import time
+from dotenv import load_dotenv
+load_dotenv()
 
 # ======================================================
 # CONFIG
@@ -241,9 +243,9 @@ def dashboard():
 
     # Show different options based on role
     if user_role == "admin":
-        navigation_options = ["Dashboard", "Admin Panel", "Smart Chat"]
+        navigation_options = ["Dashboard", "Admin Panel"]
     else:
-        navigation_options = ["Dashboard", "Create RFP", "Demo Requests", "Smart Chat"]
+        navigation_options = ["Dashboard", "Create RFP", "Smart RFP Generator", "Demo Requests"]
 
     page = st.sidebar.radio("Navigation", navigation_options)
 
@@ -260,12 +262,15 @@ def dashboard():
         render_dashboard()
     elif page == "Create RFP" and user_role == "client":
         render_create_rfp()
+    elif page == "Smart RFP Generator" and user_role == "client":
+        render_ai_rfp_generator() # New function below
     elif page == "Demo Requests" and user_role == "client":
         render_demo_requests()
     elif page == "Admin Panel" and user_role == "admin":
         render_admin_panel()
     elif page == "Smart Chat":
         render_chat()
+
 
 # ======================================================
 # NOTIFICATIONS
@@ -357,8 +362,9 @@ def render_dashboard():
     accepted_rfps = [r for r in rfps if r.get("agent_status") == "completed" and not r.get("recommendation", "").startswith("REJECT")]
     rejected_rfps = [r for r in rfps if r.get("agent_status") == "completed" and r.get("recommendation", "").startswith("REJECT")]
     pending_rfps = [r for r in rfps if r.get("agent_status") != "completed"]
+    accepted_after_demo_rfps = [r for r in rfps if r.get("demo_status") == "accepted"]
 
-    tabs = st.tabs(["All RFPs", "Accepted RFPs", "Rejected RFPs", "Pending Analysis"])
+    tabs = st.tabs(["All RFPs", "Accepted RFPs", "Rejected RFPs", "Pending Analysis", "Accepted After Demo"])
 
     def render_rfp_list(rfp_list, key_prefix=""):
         for rfp in rfp_list:
@@ -503,7 +509,7 @@ def render_dashboard():
                                 if st.button("✅ Accept After Demo", key=f"{key_prefix}accept_{rfp['_id']}", help="Accept the RFP after demo"):
                                     with st.spinner("Updating decision..."):
                                         feedback = st.text_input("Feedback (optional)", key=f"feedback_accept_{rfp['_id']}")
-                                        res = api_request("PUT", f"/demo-requests/{rfp['_id']}/decision", {"final_decision": "accept", "feedback": feedback})
+                                        res = api_request("PUT", f"/rfps/{rfp['_id']}/decision", {"final_decision": "accept", "feedback": feedback})
                                         if res and res.status_code == 200:
                                             st.success("RFP accepted!")
                                             st.rerun()
@@ -513,7 +519,7 @@ def render_dashboard():
                                 if st.button("❌ Reject After Demo", key=f"{key_prefix}reject_{rfp['_id']}", help="Reject the RFP after demo"):
                                     with st.spinner("Updating decision..."):
                                         feedback = st.text_input("Feedback (optional)", key=f"feedback_reject_{rfp['_id']}")
-                                        res = api_request("PUT", f"/demo-requests/{rfp['_id']}/decision", {"final_decision": "reject", "feedback": feedback})
+                                        res = api_request("PUT", f"/rfps/{rfp['_id']}/decision", {"final_decision": "reject", "feedback": feedback})
                                         if res and res.status_code == 200:
                                             st.success("RFP rejected.")
                                             st.rerun()
@@ -534,6 +540,8 @@ def render_dashboard():
         render_rfp_list(rejected_rfps, "rejected_")
     with tabs[3]:
         render_rfp_list(pending_rfps, "pending_")
+    with tabs[4]:
+        render_rfp_list(accepted_after_demo_rfps, "accepted_demo_")
 
 # ======================================================
 # ADMIN PANEL
@@ -796,8 +804,8 @@ def render_demo_management():
                     centers_res = api_request("GET", "/demo-centers")
                     if centers_res and centers_res.status_code == 200:
                         centers = centers_res.json()
-                        with st.form(f"schedule_form_{req['id']}"):
-                            center_options = [f"{c['id']} - {c['name']}" for c in centers if c['is_active']]
+                        with st.form(f"schedule_form_{req['_id']}"):
+                            center_options = [f"{c['_id']} - {c['name']}" for c in centers if c['is_active']]
                             selected_center = st.selectbox("Select Center", center_options)
                             scheduled_date = st.date_input("Scheduled Date")
                             scheduled_time = st.time_input("Scheduled Time")
@@ -811,7 +819,7 @@ def render_demo_management():
                                     "scheduled_datetime": scheduled_datetime.isoformat(),
                                     "admin_notes": admin_notes
                                 }
-                                res = api_request("PUT", f"/admin/demo-requests/{req['id']}/schedule", schedule_data)
+                                res = api_request("PUT", f"/admin/demo-requests/{req['_id']}/schedule", schedule_data)
                                 if res and res.status_code == 200:
                                     st.success("Demo scheduled!")
                                     st.rerun()
@@ -875,7 +883,81 @@ def render_demo_requests():
                     st.write(f"**Your Feedback:** {req.get('client_feedback')}")
 
             st.caption(f"Created: {req.get('created_at', '')[:10]}")
+            
+import google.generativeai as genai
+import os
 
+def render_ai_rfp_generator():
+    st.markdown('<div class="main-header"><h1><i class="fas fa-robot"></i> Smart RFP Generator</h1><p>Generate high-quality headlines, details, and pricing structures</p></div>', unsafe_allow_html=True)
+    
+    # Configure Gemini from your ENV
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        st.error("GOOGLE_API_KEY not found in environment. Please check your .env file.")
+        return
+    
+    genai.configure(api_key=api_key)
+
+    with st.container():
+        st.subheader("Project Inputs")
+        with st.form("ai_gen_form"):
+            col1, col2 = st.columns(2)
+            with col1:
+                topic = st.text_input("What are you looking for?", placeholder="e.g., Installation of 500kW Solar Grid")
+                industry = st.selectbox("Industry Segment", ["Industrial", "Renewable Energy", "Construction", "IT Infrastructure"])
+            with col2:
+                budget_hint = st.text_input("Estimated Budget (Optional)", placeholder="e.g., $200k - $250k")
+                urgency = st.select_slider("Urgency Level", options=["Low", "Medium", "High"])
+
+            context = st.text_area("Specific Requirements", placeholder="Mention technical specs, quality standards, or specific location needs...")
+            
+            generate_btn = st.form_submit_button("Generate Professional RFP Draft")
+
+    if generate_btn:
+        if not topic or not context:
+            st.warning("Please provide the project topic and specific requirements.")
+        else:
+            with st.spinner("Gemini AI is crafting your RFP..."):
+                try:
+                    model = genai.GenerativeModel('gemini-2.5-flash')
+                    
+                    prompt = f"""
+                    As an expert procurement officer, draft a professional RFP based on:
+                    TOPIC: {topic}
+                    INDUSTRY: {industry}
+                    BUDGET CONTEXT: {budget_hint}
+                    URGENCY: {urgency}
+                    REQUIREMENTS: {context}
+
+                    Strictly format the output as follows:
+                    1. RFP HEADLINE: (A compelling, professional title)
+                    2. PROJECT DETAILS: (Comprehensive scope of work and technical requirements)
+                    3. PRICING GUIDELINES: (Suggested price structure: per unit, milestone-based, or lump sum)
+                    4. VENDOR QUALIFICATIONS: (What the bidder must prove)
+
+                    Use professional Markdown formatting.
+                    """
+                    
+                    response = model.generate_content(prompt)
+                    ai_content = response.text
+
+                    st.session_state['last_ai_draft'] = ai_content
+                    st.session_state['last_ai_title'] = topic
+
+                    st.markdown("### ✨ Generated RFP Draft")
+                    st.markdown(f'<div style="background-color: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 20px; border-radius: 10px; border-left: 5px solid #4f46e5;">{ai_content}</div>', unsafe_allow_html=True)
+                    
+                    st.divider()
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        if st.button("📋 Copy to 'Create RFP' Form"):
+                            st.session_state['auto_fill_rfp'] = True
+                            st.success("Draft saved! Navigate to 'Create RFP' to finalize.")
+                    with col_b:
+                        st.download_button("📥 Download as Text", ai_content, file_name="rfp_draft.txt")
+
+                except Exception as e:
+                    st.error(f"Error generating RFP: {str(e)}")
 # ======================================================
 # CREATE RFP
 # ======================================================

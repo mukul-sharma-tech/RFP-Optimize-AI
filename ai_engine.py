@@ -13,7 +13,7 @@ if not api_key:
 else:
     genai.configure(api_key=api_key)
 
-MODEL_NAME = "gemini-2.5-flash"
+MODEL_NAME = "gemini-2.0-flash"
 
 def load_repository_file(filename):
     """Helper to read the external text files."""

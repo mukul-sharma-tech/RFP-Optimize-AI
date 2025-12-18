@@ -191,3 +191,12 @@ class DemoRequestResponse(BaseModel):
 
     class Config:
         populate_by_name = True
+
+class DemoScheduleCreate(BaseModel):
+    center_id: str
+    scheduled_datetime: datetime
+    admin_notes: Optional[str] = None
+
+class DemoDecisionCreate(BaseModel):
+    final_decision: str
+    feedback: Optional[str] = None

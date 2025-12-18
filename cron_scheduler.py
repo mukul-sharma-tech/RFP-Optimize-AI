@@ -43,7 +43,7 @@ class CronScheduler:
                         "agent_status": "completed"
                     }
 
-                    await self.db.rfps.update_one({"_id": rfp_doc["_id"]}, {"₹set": update_data})
+                    await self.db.rfps.update_one({"_id": rfp_doc["_id"]}, {"$set": update_data})
 
                     # Send notification to user
                     await self.send_notification(
@@ -58,7 +58,7 @@ class CronScheduler:
 
                 except Exception as e:
                     print(f"Error processing RFP {rfp_doc.get('_id')}: {e}")
-                    await self.db.rfps.update_one({"_id": rfp_doc["_id"]}, {"₹set": {"agent_status": "failed"}})
+                    await self.db.rfps.update_one({"_id": rfp_doc["_id"]}, {"$set": {"agent_status": "failed"}})
 
             print(f"[{datetime.now()}] Completed scheduled AI analysis: {count} RFPs processed")
 

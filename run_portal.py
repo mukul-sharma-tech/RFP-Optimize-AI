@@ -37,48 +37,7 @@ def check_dependencies():
     print("SUCCESS: All dependencies are installed")
     return True
 
-def setup_database():
-    """Initialize and seed the database."""
-    print("SETUP: Setting up database...")
-
-    try:
-        # Import database setup
-        from database import engine, Base
-        from sqlalchemy.orm import sessionmaker
-        from seed_data import product_prices_seed, test_prices_seed
-        from models import ProductPrice, TestPrice
-
-        # Create all tables
-        Base.metadata.create_all(bind=engine)
-        print("SUCCESS: Database tables created")
-
-        # Create session for seeding
-        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-        db = SessionLocal()
-
-        try:
-            # Seed product prices
-            for data in product_prices_seed:
-                if not db.query(ProductPrice).filter_by(sku_id=data["sku_id"]).first():
-                    db.add(ProductPrice(**data))
-
-            # Seed test prices
-            for data in test_prices_seed:
-                if not db.query(TestPrice).filter_by(test_code=data["test_code"]).first():
-                    db.add(TestPrice(**data))
-
-            db.commit()
-            print("SUCCESS: Database seeded with initial data")
-
-        finally:
-            db.close()
-
-        return True
-    except Exception as e:
-        print(f"ERROR: Database setup failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+# Database setup not needed for MongoDB
 
 def check_environment():
     """Check if .env file exists and has required variables."""
@@ -180,10 +139,6 @@ def main():
 
     # Check environment
     if not check_environment():
-        sys.exit(1)
-
-    # Setup database
-    if not setup_database():
         sys.exit(1)
 
     print("\nSTARTING: RFP-Optimize AI Portal...")

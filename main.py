@@ -1,5 +1,4 @@
 # main.py
-
 from fastapi import FastAPI, Depends, HTTPException, status, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
@@ -14,12 +13,9 @@ from contextlib import asynccontextmanager
 import os
 
 load_dotenv()
-
-
-
+DATABASE_NAME="rfp_platform"
 MONGODB_URL = os.getenv("MONGODB_URL", "mongodb+srv://mukul:1010@nodecluster0.hurza.mongodb.net/?retryWrites=true&w=majority&appName=NodeCluster0")
-DATABASE_NAME = os.getenv("DATABASE_NAME", "rfp_platform")
-
+#   -> user will give the detils of rfp and 
 # Import Database stuff from database.py
 from database import (
     async_db, get_db,
@@ -35,7 +31,7 @@ from schemas import (
     UserCreate, UserLogin, Token, UserResponse,
     RFPCreate, RFPUpdate, RFPResponse, RFPList,
     QualificationRuleResponse, ProductPriceResponse, TestPriceResponse,
-    DemoCenterResponse, DemoRequestCreate, DemoRequestResponse
+    DemoCenterResponse, DemoRequestCreate, DemoRequestResponse, DemoScheduleCreate, DemoDecisionCreate
 )
 
 from auth import authenticate_user, create_access_token, get_current_user
@@ -330,7 +326,7 @@ async def analyze_rfp(rfp_id: str, current_user: User = Depends(get_current_user
 
     try:
         # Update status to processing
-        await db.rfps.update_one({"_id": ObjectId(rfp_id)}, {"$set": {"agent_status": "processing"}})
+        await db.rfps.update_one({"_id": rfp_id}, {"$set": {"agent_status": "processing"}})
 
         # Run AI
         results = orchestrator.run_analysis({
@@ -351,7 +347,7 @@ async def analyze_rfp(rfp_id: str, current_user: User = Depends(get_current_user
             "agent_status": "completed"
         }
 
-        await db.rfps.update_one({"_id": ObjectId(rfp_id)}, {"$set": update_data})
+        await db.rfps.update_one({"_id": rfp_id}, {"$set": update_data})
 
         # Automatically create demo request for positive recommendations
         recommendation = results.get("recommendation", "")
@@ -375,7 +371,7 @@ async def analyze_rfp(rfp_id: str, current_user: User = Depends(get_current_user
                     demo_req.id = str(result.inserted_id)
 
                     # Update RFP demo status
-                    await db.rfps.update_one({"_id": ObjectId(rfp_id)}, {"$set": {"demo_status": "requested"}})
+                    await db.rfps.update_one({"_id": rfp_id}, {"$set": {"demo_status": "requested"}})
 
                     # Send demo notification
                     if background_tasks:
@@ -412,9 +408,9 @@ async def analyze_rfp(rfp_id: str, current_user: User = Depends(get_current_user
             "suggestions": ["Re-run AI analysis when service is available", "Manually review RFP requirements against company capabilities"],
             "agent_status": "completed"  # Mark as completed with fallback data
         }
-        await db.rfps.update_one({"_id": ObjectId(rfp_id)}, {"$set": fallback_data})
+        await db.rfps.update_one({"_id": rfp_id}, {"$set": fallback_data})
 
-    updated_doc = await db.rfps.find_one({"_id": ObjectId(rfp_id)})
+    updated_doc = await db.rfps.find_one({"_id": rfp_id})
     return RFP(**updated_doc)
 
 # ======================================================
@@ -483,13 +479,13 @@ async def create_qualification_rule(rule: QualificationRule, current_user: User 
 @app.put("/admin/rules/{rule_id}", response_model=QualificationRuleResponse)
 async def update_qualification_rule(rule_id: str, rule_update: QualificationRule, current_user: User = Depends(require_admin), db: Database = Depends(get_db)):
     update_data = rule_update.dict(exclude_unset=True)
-    await db.qualification_rules.update_one({"_id": ObjectId(rule_id)}, {"$set": update_data})
-    updated_doc = await db.qualification_rules.find_one({"_id": ObjectId(rule_id)})
+    await db.qualification_rules.update_one({"_id": rule_id}, {"$set": update_data})
+    updated_doc = await db.qualification_rules.find_one({"_id": rule_id})
     return QualificationRule(**updated_doc)
 
 @app.delete("/admin/rules/{rule_id}")
 async def delete_qualification_rule(rule_id: str, current_user: User = Depends(require_admin), db: Database = Depends(get_db)):
-    await db.qualification_rules.delete_one({"_id": ObjectId(rule_id)})
+    await db.qualification_rules.delete_one({"_id": rule_id})
     return {"message": "Rule deleted"}
 
 # Manage Product Prices Repository
@@ -554,7 +550,7 @@ async def create_cron_job(job: CronJobConfig, current_user: User = Depends(requi
 @app.put("/admin/cron-jobs/{job_id}")
 async def update_cron_job(job_id: str, job_update: CronJobConfig, current_user: User = Depends(require_admin), db: Database = Depends(get_db)):
     update_data = job_update.dict(exclude_unset=True)
-    await db.cron_jobs.update_one({"_id": ObjectId(job_id)}, {"$set": update_data})
+    await db.cron_jobs.update_one({"_id": job_id}, {"$set": update_data})
     return {"message": "Cron job updated"}
 
 # Notifications for users
@@ -595,9 +591,9 @@ async def get_demo_centers(current_user: User = Depends(get_current_user_dep), d
 async def request_demo(rfp_id: str, demo_request: DemoRequestCreate, current_user: User = Depends(require_client), db: Database = Depends(get_db)):
     # Check if RFP exists and user has access
     if current_user.role == "admin":
-        rfp_doc = await db.rfps.find_one({"_id": ObjectId(rfp_id)})
+        rfp_doc = await db.rfps.find_one({"_id": rfp_id})
     else:
-        rfp_doc = await db.rfps.find_one({"_id": ObjectId(rfp_id), "user_id": current_user.id})
+        rfp_doc = await db.rfps.find_one({"_id": rfp_id, "user_id": current_user.id})
     if not rfp_doc:
         raise HTTPException(status_code=404, detail="RFP not found")
 
@@ -622,7 +618,7 @@ async def request_demo(rfp_id: str, demo_request: DemoRequestCreate, current_use
     demo_req.id = str(result.inserted_id)
 
     # Update RFP demo status
-    await db.rfps.update_one({"_id": ObjectId(rfp_id)}, {"$set": {"demo_status": "requested"}})
+    await db.rfps.update_one({"_id": rfp_id}, {"$set": {"demo_status": "requested"}})
 
     # Send notification
     await send_notification(db, current_user.id, rfp_id, f"Demo request submitted for RFP: {rfp.title}", "demo_request")
@@ -662,32 +658,35 @@ async def get_demo_requests(current_user: User = Depends(require_client), db: Da
 
 
 # Update demo decision (accept/reject after demo)
-@app.put("/demo-requests/{request_id}/decision")
-async def update_demo_decision(request_id: str, final_decision: str, feedback: Optional[str] = None, current_user: User = Depends(require_client), db: Database = Depends(get_db)):
-    if final_decision not in ["accept", "reject"]:
+@app.put("/rfps/{rfp_id}/decision")
+async def update_demo_decision(rfp_id: str, decision_data: DemoDecisionCreate, current_user: User = Depends(require_client), db: Database = Depends(get_db)):
+    if decision_data.final_decision not in ["accept", "reject"]:
         raise HTTPException(status_code=400, detail="Decision must be 'accept' or 'reject'")
+
+    # Find demo request for this RFP
+    demo_req_doc = await db.demo_requests.find_one({"rfp_id": rfp_id, "user_id": current_user.id})
+    if not demo_req_doc:
+        raise HTTPException(status_code=404, detail="Demo request not found")
 
     # Update demo request
     update_data = {
-        "final_decision": final_decision,
-        "client_feedback": feedback,
+        "final_decision": decision_data.final_decision,
+        "client_feedback": decision_data.feedback,
         "status": "completed"
     }
     await db.demo_requests.update_one(
-        {"_id": request_id, "user_id": current_user.id},
+        {"_id": demo_req_doc["_id"]},
         {"$set": update_data}
     )
 
     # Update RFP demo status
-    demo_req_doc = await db.demo_requests.find_one({"_id": request_id})
-    if demo_req_doc:
-        rfp_status = "accepted" if final_decision == "accept" else "rejected"
-        await db.rfps.update_one(
-            {"_id": demo_req_doc["rfp_id"]},
-            {"$set": {"demo_status": rfp_status}}
-        )
+    rfp_status = "accepted" if decision_data.final_decision == "accept" else "rejected"
+    await db.rfps.update_one(
+        {"_id": rfp_id},
+        {"$set": {"demo_status": rfp_status}}
+    )
 
-    return {"message": f"Demo {final_decision}ed successfully"}
+    return {"message": f"Demo {decision_data.final_decision}ed successfully"}
 
 # ======================================================
 # ADMIN DEMO MANAGEMENT
@@ -706,23 +705,26 @@ async def admin_get_demo_requests(current_user: User = Depends(require_admin), d
 
 # Schedule demo
 @app.put("/admin/demo-requests/{request_id}/schedule")
-async def schedule_demo(request_id: str, center_id: str, scheduled_datetime: datetime, admin_notes: Optional[str] = None, current_user: User = Depends(require_admin), db: Database = Depends(get_db)):
+async def schedule_demo(request_id: str, schedule_data: DemoScheduleCreate, current_user: User = Depends(require_admin), db: Database = Depends(get_db)):
     # Check if center exists and has availability
-    center_doc = await db.demo_centers.find_one({"_id": center_id, "is_active": True})
+    center_doc = await db.demo_centers.find_one({"_id": ObjectId(schedule_data.center_id), "is_active": True})
     if not center_doc:
         raise HTTPException(status_code=404, detail="Demo center not found")
 
-    center = DemoCenter(**center_doc)
-    slot_str = scheduled_datetime.strftime("%Y-%m-%d %H:%M")
-    if slot_str not in center.available_slots:
-        raise HTTPException(status_code=400, detail="Selected time slot not available")
+    center_data = dict(center_doc)
+    center_data["_id"] = str(center_data["_id"])
+    center = DemoCenter(**center_data)
+    # For demo purposes, skip slot availability check
+    # slot_str = schedule_data.scheduled_datetime.strftime("%Y-%m-%d %H:%M")
+    # if slot_str not in center.available_slots:
+    #     raise HTTPException(status_code=400, detail="Selected time slot not available")
 
     # Update demo request
     update_data = {
         "status": "scheduled",
-        "scheduled_center_id": center_id,
-        "scheduled_datetime": scheduled_datetime,
-        "admin_notes": admin_notes
+        "scheduled_center_id": schedule_data.center_id,
+        "scheduled_datetime": schedule_data.scheduled_datetime,
+        "admin_notes": schedule_data.admin_notes
     }
     await db.demo_requests.update_one({"_id": request_id}, {"$set": update_data})
 
@@ -736,7 +738,7 @@ async def schedule_demo(request_id: str, center_id: str, scheduled_datetime: dat
 
     # Send notification to client
     await send_notification(db, demo_req_doc["user_id"], demo_req_doc["rfp_id"],
-                          f"Demo scheduled at {center.name} on {scheduled_datetime.strftime('%Y-%m-%d %H:%M')}", "demo_scheduled")
+                           f"Demo scheduled at {center.name} on {schedule_data.scheduled_datetime.strftime('%Y-%m-%d %H:%M')}", "demo_scheduled")
 
     return {"message": "Demo scheduled successfully"}
 
