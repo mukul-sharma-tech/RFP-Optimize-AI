@@ -7,7 +7,7 @@ import os
 load_dotenv()
 
 # MongoDB connection
-MONGODB_URL = os.getenv("MONGODB_URL", "mongodb+srv://mukul:1010@nodecluster0.hurza.mongodb.net/?retryWrites=true&w=majority&appName=NodeCluster0")
+MONGODB_URL = os.getenv("MONGODB_URL", "")
 DATABASE_NAME = os.getenv("DATABASE_NAME", "rfp_platform")
 
 # Async client for FastAPI
